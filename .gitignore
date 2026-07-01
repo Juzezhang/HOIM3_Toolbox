@@ -17,3 +17,4 @@ __pycache__/
 # internal agent instruction files
 CLAUDE.md
 AGENTS.md
+.vscode/

@@ -1,0 +1,17 @@
+ipdb
+joblib
+tqdm
+yacs
+tabulate
+termcolor
+chumpy
+func_timeout
+ultralytics
+gdown
+pytorch-lightning==1.5.0
+trimesh
+matplotlib
+smplx
+opencv-python
+numpy==1.23
+lz4

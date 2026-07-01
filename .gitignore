@@ -1,0 +1,19 @@
+# License-restricted body-model weights — download from the official SMPL / SMPL-X / MANO sites
+models/model_files/
+# object detector weights — download from Ultralytics
+*.pt
+# training outputs, logs, caches
+runs/
+pipeline_logs/
+__pycache__/
+*.pyc
+# IDE / OS junk
+.idea/
+.DS_Store
+# large internal spreadsheets / working docs
+*.xlsx
+*.docx
+
+# internal agent instruction files
+CLAUDE.md
+AGENTS.md

@@ -1,0 +1,85 @@
+// {
+//     // Use IntelliSense to learn about possible attributes.
+//     // Hover to view descriptions of existing attributes.
+//     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+//     "version": "0.2.0",
+//     "configurations": [
+//         {
+//             "name": "Debug Module",
+//             "type": "python",
+//             "request": "launch",
+//             "module": "scripts.render_genmo_reconstruction",  // 以模块方式运行
+//             "console": "integratedTerminal",
+//             "cwd": "${workspaceFolder}",  // 确保当前目录正确
+//             "justMyCode": false,
+//             "pythonPath": "/scr/juze/anaconda3/envs/genmo/bin/python",
+//             "args": [
+// 				"--cfg", "configs/config_mixed_stage1_vq_compositional_upper_lower.yaml"
+//             ],
+//         }
+//     ]
+// }
+
+
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+	    {
+	        "name": "Python: Current File",
+	        "type": "python",
+	        "request": "launch",
+            "cwd": "/simurgh/u/juze/code/ViBES",  // ensure current directory is correct
+            "program": "${file}",
+	        "pythonPath": "/scr/juze/anaconda3/envs/NeuralDome/bin/python", #this is a virtual environment. conda info --envs #you can see the conda path here.
+	        "console": "integratedTerminal",
+            "args": [
+				// "--data_root", "/simurgh/u/juze/datasets/HumanML3D",
+            ],
+            "configurations": [
+            ],
+	    }
+	]
+}
+
+
+
+// {
+//     // Use IntelliSense to learn about possible attributes.
+//     // Hover to view descriptions of existing attributes.
+//     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+//     "version": "0.2.0",
+//     "configurations": [
+//         {
+//             "name": "Debug Module",
+//             "type": "python",
+//             "request": "launch",
+//             "module": "deepspeed.launcher.runner",  // 以模块方式运行
+//             "console": "integratedTerminal",
+//             "cwd": "${workspaceFolder}",  // 确保当前目录正确
+//             "justMyCode": false,
+//             "pythonPath": "/scr/juze/anaconda3/envs/conver_agent/bin/python",
+// 			"env": {
+// 				"MASTER_ADDR": "127.0.0.1",
+// 				"MASTER_PORT": "29501"
+// 			  },
+//             "args": [
+// 				"--num_gpus=1",
+// 				"--master_port=29501",        // ← 在这里显式指定端口
+// 				"--master_addr=127.0.0.1",    // ← 如果你想显式指定地址，也可以加上
+// 				"training/train_vibes.py",
+// 				// "--deepspeed",
+// 				"--tokenized_dataset", "/scr/juze/datasets/conversational_dataset/train_face",
+// 				"--output_dir", "/scr/juze/experiments/glm4voice_debug",
+// 				"--batch_size", "8",
+// 				"--epochs", "20",
+// 				"--learning_rate", "1e-4",
+//                 // "--pretrained_model_path", "/scr/juze/experiments/glm4voice-conversational-mot-addtoken_batch_tfhp_512_512_wo_meshloss_debug/checkpoint-1500",
+//                 "--layer_num", "5",
+// 				// "--pretrained_model_path", "/scr/juze/experiments/glm4voice_conversational_mot_layernum_5_modalitynum_6_beat2_v3/checkpoint-1000"
+//             ],
+//         }
+//     ]
+// }

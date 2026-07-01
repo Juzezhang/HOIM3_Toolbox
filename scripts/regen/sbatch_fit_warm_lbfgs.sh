@@ -1,0 +1,56 @@
+#!/bin/bash
+#SBATCH --job-name=fitwlb
+#SBATCH --partition=simurgh
+#SBATCH --account=simurgh
+#SBATCH --gres=gpu:l40s:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=96G
+#SBATCH --time=6:00:00
+#SBATCH --output=/simurgh/u/juze/regen_logs/fitwlb_%A.out
+#SBATCH --error=/simurgh/u/juze/regen_logs/fitwlb_%A.err
+#SBATCH --exclude=simurgh2
+
+# 28-view mvbodyfit with Kabsch warm-start + short LBFGS polish (mhr_warm_lbfgs).
+# Expected wall-clock between rt_svd (~10 min) and mhr_simplified (~58 min).
+# Usage: sbatch sbatch_fit_warm_lbfgs.sh <seq>
+
+set -u
+SEQ=${1:?seq required}
+echo "=== Job $SLURM_JOB_ID on $SLURMD_NODENAME — fit_warm_lbfgs $SEQ ==="
+nvidia-smi -L
+
+source /simurgh2/users/juze/anaconda3/etc/profile.d/conda.sh
+conda activate mvbodyfit
+
+PY=/simurgh2/users/juze/anaconda3/envs/mvbodyfit/bin/python
+OUT_DIR=/simurgh2/datasets/HOI-M3/mhr_warm_lbfgs/$SEQ
+
+if [ -d "$OUT_DIR/keypoints3d" ] && [ "$(/usr/bin/ls $OUT_DIR/keypoints3d 2>/dev/null | /usr/bin/wc -l)" -ge 100 ] \
+   && [ -d "$OUT_DIR/mhr" ] && [ "$(/usr/bin/ls $OUT_DIR/mhr 2>/dev/null | /usr/bin/wc -l)" -ge 100 ]; then
+    echo "Skip: $OUT_DIR already has keypoints3d+mhr"
+    exit 0
+fi
+
+cd /simurgh/u/juze/code/mv-bodyfit
+
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export MVFIT_CHUNK_SIZE=3000
+# Disable subsample+warm-refine path — Kabsch is per-frame closed form so no
+# benefit to fitting a subsample and interpolating.
+export MVFIT_SUBSAMPLE_STEP=0
+export CUDA_VISIBLE_DEVICES=0
+
+# 28 views (canonical 16 + new 6 + 35-41) — exclude v33
+SUBS="0 2 5 6 7 8 10 11 14 15 17 19 21 22 23 24 25 26 27 28 29 34 35 36 37 38 39 41"
+
+t0=$(date +%s)
+$PY -u apps/mocap/run.py \
+    --cfg config/hoim3_mhr_warm_lbfgs_refined.yml \
+    --sequence "$SEQ" \
+    --subs $SUBS \
+    --out "$OUT_DIR" \
+    --skip_vis
+rc=$?
+dt=$(($(date +%s) - t0))
+echo "$(date) [$SEQ] fit_warm_lbfgs rc=$rc in ${dt}s"
+exit $rc

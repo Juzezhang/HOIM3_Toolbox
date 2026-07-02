@@ -107,7 +107,37 @@ python scripts/convert_masks_npz_to_lz4.py --src_root /path/to/HOI-M3 --seq <seq
 The authoritative mask format is the merged **`mask_shards/{seq}/`** (LZ4 + bit-packed, 1080p), read
 by the `SequenceShardReaders`.
 
-### 3. Mask validity check & visualization
+### 3. Reading the masks
+`mask_shards/{seq}/` is **object-major**: a `meta.json`
+(`objects`, `views`, `height`, `width`, `frame_ids`, `codec: lz4`, `bitpacked: true`) plus one
+`{object}.shard` per object (`person0`, `person1`, and each object name). Each shard stores every
+frame as an LZ4-compressed, bit-packed `(V, H, W)` binary mask. Read with `scripts/utils/mask_io.py`
+(run from the repo root):
+
+```python
+from scripts.utils.mask_io import SequenceShardReaders, load_frame_masks_shard_full, load_frame_masks_shard
+
+readers = SequenceShardReaders("/path/to/HOI-M3/mask_shards/bedroom_data01")
+print(readers.objects, readers.views, readers.height, readers.width)
+# e.g. ['person0','person1','bed',...]  42  1080  1920
+
+# all 42 views of one frame, per object  ->  {obj: uint8 (V, H, W)}, values 0/1
+masks = load_frame_masks_shard_full(readers, frame_id=0)
+person0 = masks["person0"]        # (42, 1080, 1920)
+
+# or only specific views (cheaper)  ->  {obj: {view_idx: (H, W)}}
+masks_v = load_frame_masks_shard(readers, frame_id=0, view_indices=[0, 7, 14])
+readers.close()
+```
+
+- **View index** = position in `meta["views"]` (the 42-camera order), matching the calibration view keys.
+- Iterate frames over `readers.frame_ids_list`; `meta["bad_frame_ids"]` lists frames with no usable mask.
+- The portable per-frame **NPZ** form is also supported (`load_frame_masks_npz` / `detect_mask_format`
+  in the same module) for the raw `mask_npz/` sources.
+- Cross-reference with the **mask-validity** arrays (next section) to gate which `(frame, object, view)`
+  combinations are worth using.
+
+### 4. Mask validity check & visualization
 Score which (frame, object, view) combinations have a usable mask, then visualize:
 ```bash
 # single sequence
@@ -125,7 +155,7 @@ python scripts/visualize_mask_validity_all.py --root_path /path/to/HOI-M3 \
   --validity_path /path/to/HOI-M3/mask_validity --output_path /path/to/HOI-M3/mask_validity_vis --combined --step 20
 ```
 
-### 4. Visualization toolkit
+### 5. Visualization toolkit
 Render the multi-view human + object annotations onto the images (PyTorch3D):
 ```bash
 python scripts/hoim3_visualization.py --root_path /path/to/HOI-M3 \
@@ -134,7 +164,7 @@ python scripts/hoim3_visualization.py --root_path /path/to/HOI-M3 \
 `viz/` also provides a PyTorch3D wrapper (`pyt3d_wrapper.py`) and a human–object contact
 visualizer (`contact_viz.py`).
 
-### 5. Splits & utilities
+### 6. Splits & utilities
 ```bash
 python scripts/generate_train_test_split.py       # train/test sequence split
 python scripts/extract_sequence_contents.py        # per-sequence content inventory

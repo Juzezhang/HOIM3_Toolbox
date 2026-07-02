@@ -34,7 +34,7 @@ generation/validation, and rendering of the human/object annotations.
 | Sequences | **204** — bedroom 36 · diningroom 23 · fitnessroom 27 · livingroom 57 · office 61 |
 | Camera views | **42** synchronized cameras |
 | Frames / seq | ~21,600 @ 59.94 fps |
-| Capture resolution | 4K (3840×2160) for bedroom / diningroom / fitnessroom · 720p (1280×720) for livingroom / office |
+| Resolution | 4K (3840×2160) |
 | Scene content | multiple humans + multiple objects, in contextual room layouts |
 | Annotations | multi-view RGB, instance masks, mono MHR body, VitPose 2D keypoints, multi-view SMPL-X/MHR fits, per-frame object 6-DoF poses, scanned object meshes |
 | Calibration | refined ground calibration (`calib_ground_refined`), all 42 views |
@@ -75,9 +75,9 @@ for f in *.tar; do tar -xf "$f"; done
 
 ```
 HOI-M3/
-├─ videos/                {seq}/videos/{view}.mp4        # 42 views, 4K/720p HEVC
+├─ videos/                {seq}/videos/{view}.mp4        # 42 views, 4K HEVC
 ├─ images/                {seq}/{view}/{frame:06d}.jpg   # extracted (see below)
-├─ mask/                  released masks (+ regenerate all 42 views with this toolbox)
+├─ mask/                  released masks (all 42 views)
 ├─ calib_ground_refined/  {date}/calibration.json        # 42 views; seq→date via dataset_information.json
 ├─ mocap/                 per-frame object 6-DoF poses (ground frame)
 ├─ scanned_object/        object meshes
@@ -87,8 +87,8 @@ HOI-M3/
 
 Sequences map to a capture **date** via `dataset_information.json`; the matching camera calibration
 lives in `calib_ground_refined/{date}/calibration.json` (each view: `K` 3×3, `RT` 3×4 world→camera,
-`distCoeff`, `imgSize` at capture resolution — rescale `K` by `image_height / imgSize_height` when
-working on the 720p images).
+`distCoeff`, `imgSize` at the 4K capture resolution — rescale `K` by `image_height / imgSize_height`
+if you work at a lower resolution than the capture).
 
 ## 🛠️ Pipeline
 
@@ -248,8 +248,8 @@ PYOPENGL_PLATFORM=egl python scripts/visualize_smplx_grid.py \
   --seq bedroom_data01 --frame 0 --views 0 7 14 21 28 35 --out grid.png
 ```
 
-**Resolution model**: mono/keypoint outputs are uniform 720p (4K captures rescaled by
-`720 / source_height`; 3D fields unchanged). See the project page and paper for the fitting method.
+The SMPL-X parameters are in the 3D ground/world frame (resolution-independent). See the project
+page and paper for the multi-view fitting method.
 
 ## 📖 Citation
 ```bibtex

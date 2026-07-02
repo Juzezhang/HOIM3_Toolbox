@@ -170,12 +170,66 @@ python scripts/generate_train_test_split.py       # train/test sequence split
 python scripts/extract_sequence_contents.py        # per-sequence content inventory
 ```
 
-## Body & object annotations
+## SMPL-X body fits & visualization
+
 The dataset ships **mono MHR** per-view body estimates and **multi-view fitted** human parameters
-(SMPL-X / MHR) plus per-frame **object 6-DoF poses** (ground frame; remember the transpose fix). The
-resolution model is uniform 720p across all mono/keypoint outputs (4K captures are rescaled by
-`720 / source_height`; 3D fields are unchanged). See the project page and paper for the multi-view
-fitting methodology.
+(MHR) plus per-frame **object 6-DoF poses** (ground frame; remember the transpose fix). For
+interoperability we convert the multi-view MHR fits to **standard SMPL-X**.
+
+<p align="center">
+  <img src="assets/hoim3_smplx_bedroom.gif" width="32%"/>
+  <img src="assets/hoim3_smplx_diningroom.gif" width="32%"/>
+  <img src="assets/hoim3_smplx_fitnessroom.gif" width="32%"/>
+</p>
+<p align="center"><i>Converted SMPL-X meshes (person0 blue, person1 yellow) overlaid on the multi-view video — bedroom / diningroom / fitnessroom, view 0.</i></p>
+
+### MHR → SMPL-X conversion
+`scripts/mhr_to_smplx.py` forwards the multi-view MHR fit and runs MHR's official
+`convert_mhr2smpl` (per person), writing one packed NPZ per person:
+
+```bash
+python scripts/mhr_to_smplx.py --seqs bedroom_data01 \
+  --output-dir /path/to/HOI-M3/smplx_from_mhr --max-frames-per-call 8192
+```
+Output `{seq}_person{id}.npz` — T-stacked SMPL-X axis-angle arrays:
+`frame_ids (T,)` · `transl (T,3)` · `global_orient (T,3)` · `body_pose (T,63)` ·
+`left_hand_pose (T,45)` · `right_hand_pose (T,45)` · `jaw_pose/leye_pose/reye_pose (T,3)` ·
+`betas (T,10)` · `expression (T,10)` · `fitting_errors (T,)`. In the ground/world frame; validated
+at ~1 cm mean fitting error. (`--max-frames-per-call` chunks long sequences to bound GPU memory.)
+
+### Using the SMPL-X parameters
+Build the model with the **exact** flags the converter used, then forward per frame:
+
+```python
+import numpy as np, torch, smplx
+m = smplx.create('/path/to/smplx_models', model_type='smplx', gender='neutral',
+                 use_pca=False, flat_hand_mean=True, num_betas=10, num_expression_coeffs=10)
+d = np.load('smplx_from_mhr/bedroom_data01_person0.npz')
+t = 0
+out = m(betas=torch.tensor(d['betas'][t:t+1]), global_orient=torch.tensor(d['global_orient'][t:t+1]),
+        transl=torch.tensor(d['transl'][t:t+1]), body_pose=torch.tensor(d['body_pose'][t:t+1]),
+        left_hand_pose=torch.tensor(d['left_hand_pose'][t:t+1]),
+        right_hand_pose=torch.tensor(d['right_hand_pose'][t:t+1]),
+        jaw_pose=torch.tensor(d['jaw_pose'][t:t+1]), expression=torch.tensor(d['expression'][t:t+1]))
+verts = out.vertices[0].detach().numpy()   # world/ground frame; project with calib_ground_refined K,RT
+```
+
+### Visualizing the SMPL-X fits
+Overlay the meshes on the real camera images via pyrender (world→camera from the refined calib is
+handled internally; K is rescaled to the image resolution). Runs in an env with `smplx` + `pyrender`.
+
+```bash
+# animated single-view overlay -> mp4 or gif (extension picks the format)
+PYOPENGL_PLATFORM=egl python scripts/visualize_smplx_pyrender.py \
+  --seq bedroom_data01 --view 0 --start_frame 0 --end_frame 360 --step 6 \
+  --width 480 --fps 10 --out out.gif
+# static multi-view grid for a single frame (sanity-check alignment across views)
+PYOPENGL_PLATFORM=egl python scripts/visualize_smplx_grid.py \
+  --seq bedroom_data01 --frame 0 --views 0 7 14 21 28 35 --out grid.png
+```
+
+**Resolution model**: mono/keypoint outputs are uniform 720p (4K captures rescaled by
+`720 / source_height`; 3D fields unchanged). See the project page and paper for the fitting method.
 
 ## 📖 Citation
 ```bibtex

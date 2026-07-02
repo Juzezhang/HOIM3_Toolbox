@@ -9,7 +9,8 @@
   <a href="https://arxiv.org/pdf/2404.00299">[Paper]</a> &nbsp;•&nbsp;
   <a href="https://www.youtube.com/watch?v=Fq6iqoXC99A&t=2s">[Video]</a> &nbsp;•&nbsp;
   <a href="https://juzezhang.github.io/HOIM3_ProjectPage/">[Project Page]</a> &nbsp;•&nbsp;
-  <a href="https://drive.google.com/drive/folders/1bT7J0XnbUx5goixgJRWJxpycOFffpwOc?usp=sharing">[Dataset]</a>
+  <a href="https://huggingface.co/datasets/JuzeZhang/HOI-M3">[Videos — HuggingFace]</a> &nbsp;•&nbsp;
+  <a href="https://drive.google.com/drive/folders/1pXUHX0Y9Q6IVKNxjzz7iuRoFPCGociOF?usp=sharing">[Annotations — Google Drive]</a>
 </p>
 
 <p align="center">
@@ -61,9 +62,14 @@ pip install -r requirements.txt
 
 ## 📦 Download & data structure
 
-Download and extract the dataset from the [Drive folder](https://drive.google.com/drive/folders/1bT7J0XnbUx5goixgJRWJxpycOFffpwOc?usp=sharing):
+The dataset is split across two hosts:
+- **Videos** (~5.85 TB, 204 seqs × 42 views) → **HuggingFace**: [`JuzeZhang/HOI-M3`](https://huggingface.co/datasets/JuzeZhang/HOI-M3)
+- **Everything else** (masks, calibration, mocap/object poses, scanned objects, metadata) → **Google Drive**: [HOI-M3 annotations](https://drive.google.com/drive/folders/1pXUHX0Y9Q6IVKNxjzz7iuRoFPCGociOF?usp=sharing)
 
 ```bash
+# videos (HuggingFace)
+huggingface-cli download JuzeZhang/HOI-M3 --repo-type dataset --local-dir HOI-M3
+# annotations (Google Drive) — then extract any tars
 for f in *.tar; do tar -xf "$f"; done
 ```
 
@@ -87,16 +93,21 @@ working on the 720p images).
 ## 🛠️ Pipeline
 
 ### 1. Extract images from videos
+<details><summary>Show command</summary>
+
 Images are not shipped (too large); extract them from the videos:
 ```bash
 python scripts/video2image.py --root_path /path/to/HOI-M3
 ```
+
+</details>
 
 ### 2. Instance masks — YOLO11-seg + cross-view ReID
 Masks are released for a subset of views; the toolbox regenerates masks for **all 42 views** (and for
 the sequences with no released masks) via a two-stage pipeline — YOLO11m-seg instance segmentation
 trained on the annotated sequences, plus a cross-view person-matching (ReID) network that propagates
 consistent person IDs across the 42 cameras. Full recipe in **[docs/yolo_seg_pipeline.md](docs/yolo_seg_pipeline.md)**.
+<details><summary>Show commands</summary>
 
 ```bash
 # end-to-end YOLO+ReID mask generation for the no-mask office sequences
@@ -107,7 +118,11 @@ python scripts/convert_masks_npz_to_lz4.py --src_root /path/to/HOI-M3 --seq <seq
 The authoritative mask format is the merged **`mask_shards/{seq}/`** (LZ4 + bit-packed, 1080p), read
 by the `SequenceShardReaders`.
 
+</details>
+
 ### 3. Reading the masks
+<details><summary>Show usage</summary>
+
 `mask_shards/{seq}/` is **object-major**: a `meta.json`
 (`objects`, `views`, `height`, `width`, `frame_ids`, `codec: lz4`, `bitpacked: true`) plus one
 `{object}.shard` per object (`person0`, `person1`, and each object name). Each shard stores every
@@ -137,7 +152,11 @@ readers.close()
 - Cross-reference with the **mask-validity** arrays (next section) to gate which `(frame, object, view)`
   combinations are worth using.
 
-### 4. Mask validity check & visualization
+</details>
+
+### 4. Mask validity check
+<details><summary>Show commands</summary>
+
 Score which (frame, object, view) combinations have a usable mask, then visualize:
 ```bash
 # single sequence
@@ -155,6 +174,8 @@ python scripts/visualize_mask_validity_all.py --root_path /path/to/HOI-M3 \
   --validity_path /path/to/HOI-M3/mask_validity --output_path /path/to/HOI-M3/mask_validity_vis --combined --step 20
 ```
 
+</details>
+
 ### 5. Visualization toolkit
 Render the multi-view human + object annotations onto the images (PyTorch3D):
 ```bash
@@ -165,10 +186,14 @@ python scripts/hoim3_visualization.py --root_path /path/to/HOI-M3 \
 visualizer (`contact_viz.py`).
 
 ### 6. Splits & utilities
+<details><summary>Show commands</summary>
+
 ```bash
 python scripts/generate_train_test_split.py       # train/test sequence split
 python scripts/extract_sequence_contents.py        # per-sequence content inventory
 ```
+
+</details>
 
 ## SMPL-X body fits & visualization
 

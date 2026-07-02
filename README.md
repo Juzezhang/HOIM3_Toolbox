@@ -115,8 +115,6 @@ python scripts/convert_masks_npz_to_lz4.py --src_root /path/to/HOI-M3 --seq <seq
 
 </details>
 
-</details>
-
 ### 3. Reading the masks
 <details><summary>Show usage</summary>
 

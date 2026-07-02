@@ -44,7 +44,7 @@ from mvbodyfit.core.visualize.pyrender_wrapper import Renderer  # noqa: E402
 from mvbodyfit.core.mytools.camera_utils import read_cameras_refined_json  # noqa: E402
 
 SMPLX_MODEL_DIR = '/simurgh2/users/juze/smplx_models'
-SMPLX_ROOT = '/simurgh2/datasets/HOI-M3/smplx_from_mhr'
+SMPLX_ROOT = '/simurgh2/datasets/HOI-M3/smplx'
 CALIB_ROOT = '/simurgh2/datasets/HOI-M3/calib_ground_refined'
 IMG_ROOT = '/simurgh2/datasets/HOI-M3/images'
 DATASET_INFO = '/simurgh2/datasets/HOI-M3/dataset_information.json'

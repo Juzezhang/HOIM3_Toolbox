@@ -19,8 +19,8 @@
 
 HOI-M³ is a large-scale dataset for modeling the interactions of **multiple humans and multiple
 objects** within realistic, contextual environments. This toolbox provides everything to download,
-preprocess, and visualize the dataset: multi-view image extraction, instance-mask
-generation/validation, and rendering of the human/object annotations.
+preprocess, and visualize the dataset: multi-view image extraction, instance-mask reading/validation,
+MHR→SMPL-X conversion, and rendering of the human/object annotations.
 
 > This is the **HOI-M³** toolbox. For the single-person, dome-captured **HODome / NeuralDome**
 > dataset (CVPR 2023) see the separate [NeuralDome Toolbox](https://github.com/Juzezhang/NeuralDome_Toolbox).
@@ -208,7 +208,7 @@ interoperability we convert the multi-view MHR fits to **standard SMPL-X**.
 
 ```bash
 python scripts/mhr_to_smplx.py --seqs bedroom_data01 \
-  --output-dir /path/to/HOI-M3/smplx_from_mhr --max-frames-per-call 8192
+  --output-dir /path/to/HOI-M3/smplx --max-frames-per-call 8192
 ```
 Output `{seq}_person{id}.npz` — T-stacked SMPL-X axis-angle arrays:
 `frame_ids (T,)` · `transl (T,3)` · `global_orient (T,3)` · `body_pose (T,63)` ·
@@ -223,7 +223,7 @@ Build the model with the **exact** flags the converter used, then forward per fr
 import numpy as np, torch, smplx
 m = smplx.create('/path/to/smplx_models', model_type='smplx', gender='neutral',
                  use_pca=False, flat_hand_mean=True, num_betas=10, num_expression_coeffs=10)
-d = np.load('smplx_from_mhr/bedroom_data01_person0.npz')
+d = np.load('smplx/bedroom_data01_person0.npz')
 t = 0
 out = m(betas=torch.tensor(d['betas'][t:t+1]), global_orient=torch.tensor(d['global_orient'][t:t+1]),
         transl=torch.tensor(d['transl'][t:t+1]), body_pose=torch.tensor(d['body_pose'][t:t+1]),

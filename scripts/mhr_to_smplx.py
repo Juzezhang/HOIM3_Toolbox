@@ -57,7 +57,7 @@ except Exception:
 from conversion import Conversion
 
 DEFAULT_HOIM3_ROOT = "/simurgh2/datasets/HOI-M3/mhr_simplified_skel_v2_scale_pose"
-DEFAULT_OUTPUT_DIR = "/simurgh2/datasets/HOI-M3/smplx_from_mhr"
+DEFAULT_OUTPUT_DIR = "/simurgh2/datasets/HOI-M3/smplx"
 DEFAULT_SMPLX_DIR = "/simurgh2/users/juze/smplx_models"  # smplx.create expects {dir}/smplx/SMPLX_NEUTRAL.npz
 
 

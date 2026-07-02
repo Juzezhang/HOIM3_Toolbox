@@ -18,3 +18,6 @@ __pycache__/
 CLAUDE.md
 AGENTS.md
 .vscode/
+
+# internal mask-generation (YOLO11-seg + ReID) — not part of the release
+misc/

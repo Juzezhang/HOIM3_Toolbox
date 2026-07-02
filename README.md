@@ -102,21 +102,18 @@ python scripts/video2image.py --root_path /path/to/HOI-M3
 
 </details>
 
-### 2. Instance masks — YOLO11-seg + cross-view ReID
-Masks are released for a subset of views; the toolbox regenerates masks for **all 42 views** (and for
-the sequences with no released masks) via a two-stage pipeline — YOLO11m-seg instance segmentation
-trained on the annotated sequences, plus a cross-view person-matching (ReID) network that propagates
-consistent person IDs across the 42 cameras. Full recipe in **[docs/yolo_seg_pipeline.md](docs/yolo_seg_pipeline.md)**.
-<details><summary>Show commands</summary>
+### 2. Instance masks
+The dataset ships **instance masks for all 42 views** (person + each object). The authoritative
+format is the merged **`mask_shards/{seq}/`** (LZ4 + bit-packed, 1080p), read by the
+`SequenceShardReaders` — see [Reading the masks](#3-reading-the-masks) below. If you have raw
+per-frame NPZ masks, pack them into the shard format:
+<details><summary>Show command</summary>
 
 ```bash
-# end-to-end YOLO+ReID mask generation for the no-mask office sequences
-bash tools/run_yolo_reid_22office.sh
-# pack raw NPZ masks into the LZ4 bit-packed shard format the pipeline consumes
 python scripts/convert_masks_npz_to_lz4.py --src_root /path/to/HOI-M3 --seq <seq>
 ```
-The authoritative mask format is the merged **`mask_shards/{seq}/`** (LZ4 + bit-packed, 1080p), read
-by the `SequenceShardReaders`.
+
+</details>
 
 </details>
 

@@ -34,7 +34,6 @@ generation/validation, and rendering of the human/object annotations.
 | Sequences | **204** — bedroom 36 · diningroom 23 · fitnessroom 27 · livingroom 57 · office 61 |
 | Camera views | **42** synchronized cameras |
 | Frames / seq | ~21,600 @ 59.94 fps |
-| Resolution | 4K (3840×2160) |
 | Scene content | multiple humans + multiple objects, in contextual room layouts |
 | Annotations | multi-view RGB, instance masks, mono MHR body, VitPose 2D keypoints, multi-view SMPL-X/MHR fits, per-frame object 6-DoF poses, scanned object meshes |
 | Calibration | refined ground calibration (`calib_ground_refined`), all 42 views |

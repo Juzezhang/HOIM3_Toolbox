@@ -195,11 +195,11 @@ The dataset ships **mono MHR** per-view body estimates and **multi-view fitted**
 interoperability we convert the multi-view MHR fits to **standard SMPL-X**.
 
 <p align="center">
-  <img src="assets/hoim3_smplx_bedroom.gif" width="32%"/>
-  <img src="assets/hoim3_smplx_diningroom.gif" width="32%"/>
-  <img src="assets/hoim3_smplx_fitnessroom.gif" width="32%"/>
+  <img src="assets/hoim3_ho_bedroom.gif" width="32%"/>
+  <img src="assets/hoim3_ho_fitness.gif" width="32%"/>
+  <img src="assets/hoim3_ho_living.gif" width="32%"/>
 </p>
-<p align="center"><i>Converted SMPL-X meshes (person0 blue, person1 yellow) overlaid on the multi-view video — bedroom / diningroom / fitnessroom, view 0.</i></p>
+<p align="center"><i>SMPL-X humans (warm) + object meshes at their 6-DoF poses (cool) overlaid on the multi-view video — bedroom / fitnessroom / livingroom.</i></p>
 
 ### MHR → SMPL-X conversion
 `scripts/mhr_to_smplx.py` forwards the multi-view MHR fit and runs MHR's official
@@ -232,19 +232,28 @@ out = m(betas=torch.tensor(d['betas'][t:t+1]), global_orient=torch.tensor(d['glo
 verts = out.vertices[0].detach().numpy()   # world/ground frame; project with calib_ground_refined K,RT
 ```
 
-### Visualizing the SMPL-X fits
-Overlay the meshes on the real camera images via pyrender (world→camera from the refined calib is
-handled internally; K is rescaled to the image resolution). Runs in an env with `smplx` + `pyrender`.
+### Visualizing (humans + objects)
+Overlay the meshes on the real camera images via pyrender (world→camera from the refined
+`calib_ground_refined` — the same cameras the MHR fitting used — handled internally; K rescaled to the
+image resolution). Runs in an env with `smplx` + `pyrender`.
 
 ```bash
-# animated single-view overlay -> mp4 or gif (extension picks the format)
+# humans + objects together, animated single-view overlay -> mp4/gif (the figures above)
+PYOPENGL_PLATFORM=egl python scripts/visualize_human_object.py \
+  --seq bedroom_data01 --view 5 --obj_source objpose_v3 \
+  --start_frame 0 --end_frame 600 --step 10 --width 480 --fps 10 --out out.gif
+# humans only (animated)
 PYOPENGL_PLATFORM=egl python scripts/visualize_smplx_pyrender.py \
-  --seq bedroom_data01 --view 0 --start_frame 0 --end_frame 360 --step 6 \
-  --width 480 --fps 10 --out out.gif
-# static multi-view grid for a single frame (sanity-check alignment across views)
+  --seq bedroom_data01 --view 0 --start_frame 0 --end_frame 360 --step 6 --width 480 --fps 10 --out out.gif
+# objects only (still or --anim); --source {objpose_v3, mocap_ground}
+PYOPENGL_PLATFORM=egl python scripts/visualize_objpose.py \
+  --seq bedroom_data01 --frame 0 --view 7 --source objpose_v3 --out objects.png
+# static multi-view SMPL-X grid (sanity-check alignment across views)
 PYOPENGL_PLATFORM=egl python scripts/visualize_smplx_grid.py \
   --seq bedroom_data01 --frame 0 --views 0 7 14 21 28 35 --out grid.png
 ```
+Object poses come from `object/{seq}_object.npz` (ground frame; `object_source=mocap_ground`) or the
+refined `objpose_v3/` fit; the human meshes from `smplx/`.
 
 The SMPL-X parameters are in the 3D ground/world frame (resolution-independent). See the project
 page and paper for the multi-view fitting method.

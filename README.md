@@ -195,11 +195,11 @@ The dataset ships **mono MHR** per-view body estimates and **multi-view fitted**
 interoperability we convert the multi-view MHR fits to **standard SMPL-X**.
 
 <p align="center">
-  <img src="assets/hoim3_smplx_bedroom.gif" width="32%"/>
-  <img src="assets/hoim3_smplx_diningroom.gif" width="32%"/>
-  <img src="assets/hoim3_smplx_fitnessroom.gif" width="32%"/>
+  <img src="assets/hoim3_ho_bedroom.gif" width="32%"/>
+  <img src="assets/hoim3_ho_fitness.gif" width="32%"/>
+  <img src="assets/hoim3_ho_fitness2.gif" width="32%"/>
 </p>
-<p align="center"><i>Converted SMPL-X human meshes overlaid on the multi-view video — bedroom / diningroom / fitnessroom. (Human + object joint visualization coming soon.)</i></p>
+<p align="center"><i>SMPL-X humans (warm) + object meshes at their 6-DoF poses (cool) overlaid on the multi-view video — bedroom & fitnessroom sequences.</i></p>
 
 ### MHR → SMPL-X conversion
 `scripts/mhr_to_smplx.py` forwards the multi-view MHR fit and runs MHR's official

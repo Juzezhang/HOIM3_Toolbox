@@ -238,11 +238,11 @@ Overlay the meshes on the real camera images via pyrender (world→camera from t
 image resolution). Runs in an env with `smplx` + `pyrender`.
 
 ```bash
-# humans + objects together, animated single-view overlay -> mp4/gif (the figures above)
+# humans + objects together, animated single-view overlay -> mp4/gif
 PYOPENGL_PLATFORM=egl python scripts/visualize_human_object.py \
   --seq bedroom_data01 --view 5 --obj_source objpose_v3 \
   --start_frame 0 --end_frame 600 --step 10 --width 480 --fps 10 --out out.gif
-# humans only (animated)
+# humans only (animated) -> the gallery GIFs above
 PYOPENGL_PLATFORM=egl python scripts/visualize_smplx_pyrender.py \
   --seq bedroom_data01 --view 0 --start_frame 0 --end_frame 360 --step 6 --width 480 --fps 10 --out out.gif
 # objects only (still or --anim); --source {objpose_v3, mocap_ground}

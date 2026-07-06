@@ -42,10 +42,23 @@ from mvbodyfit.core.visualize.pyrender_wrapper import Renderer  # noqa: E402
 from mvbodyfit.core.mytools.camera_utils import read_cameras_refined_json  # noqa: E402
 
 SMPLX_MODEL_DIR = '/simurgh2/users/juze/smplx_models'
-SMPLX_ROOT = '/simurgh2/datasets/HOI-M3/smplx'
-CALIB_ROOT = '/simurgh2/datasets/HOI-M3/calib_ground_refined'
+SMPLX_ROOTS = {'ground_refined': '/simurgh2/datasets/HOI-M3/smplx',
+               'with_distortion': '/simurgh2/datasets/HOI-M3/smplx_with_distortion'}
+SMPLX_ROOT = SMPLX_ROOTS['ground_refined']  # reassigned in main() to match --calib
 IMG_ROOT = '/simurgh2/datasets/HOI-M3/images'
 DATASET_INFO = '/simurgh2/datasets/HOI-M3/dataset_information.json'
+
+# Two calibrations ship with the dataset (see README). They live in DIFFERENT world
+# frames and are HARD-PAIRED with their own fits -- never mix them:
+#   ground_refined  : refined PINHOLE calib (distCoeff ~= 0). Pairs with smplx/ + mhr/.
+#   with_distortion : the MORE ACCURATE calib (5-param OpenCV distortion, genuinely
+#                     non-zero). Fits were triangulated from UNDISTORTED 2D, so the
+#                     image MUST be undistorted before overlay. Pairs with
+#                     smplx_with_distortion/ + mhr_withdist/.
+CALIB_ROOTS = {
+    'ground_refined': '/simurgh2/datasets/HOI-M3/calib_ground_refined',
+    'with_distortion': '/simurgh2/datasets/HOI-M3/calib_with_distortion',
+}
 
 # axis-angle / pose keys forwarded to SMPL-X for a single frame
 _PARAM_KEYS = {
@@ -125,6 +138,24 @@ def scale_K(K, img_h, calib_H):
     return Ks, s
 
 
+def maybe_undistort(img, Ks, dist, use_distortion):
+    """Undistort `img` in place of the raw frame when using the distortion calib.
+
+    The with_distortion fits were triangulated from UNDISTORTED 2D, so we rectify the
+    image with cv2.undistort using the resolution-scaled K and the RAW distCoeff, then
+    project the mesh with the SAME Ks. cv2.undistort defaults newCameraMatrix=Ks, so the
+    rectified image matches Ks exactly. distCoeff is dimensionless (normalized coords),
+    so it does NOT scale with resolution -- pass it raw alongside the scaled K.
+    For ground_refined (distCoeff ~= 0) this is a no-op and we skip it entirely.
+    """
+    if not use_distortion:
+        return img
+    dist = np.asarray(dist, dtype=np.float32).reshape(-1)
+    if dist.size == 0 or not np.any(dist != 0):
+        return img
+    return cv2.undistort(img, Ks, dist)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--seq', default='bedroom_data01')
@@ -132,6 +163,10 @@ def main():
     ap.add_argument('--views', nargs='+', default=['0', '7', '14', '21', '28', '35'])
     ap.add_argument('--out', required=True)
     ap.add_argument('--n_cols', type=int, default=3)
+    ap.add_argument('--calib', choices=['ground_refined', 'with_distortion'],
+                    default='ground_refined',
+                    help="calibration set: 'ground_refined' (pinhole, default) or "
+                         "'with_distortion' (more accurate; undistorts the image)")
     ap.add_argument('--gpu', type=int, default=0)
     args = ap.parse_args()
 
@@ -139,11 +174,18 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     views = [str(v) for v in args.views]
 
+    use_distortion = args.calib == 'with_distortion'
+    calib_root = CALIB_ROOTS[args.calib]
+    # --calib selects the matching {calib + SMPL-X} pair (they share a world frame).
+    global SMPLX_ROOT
+    SMPLX_ROOT = SMPLX_ROOTS[args.calib]
+    print(f'[viz] calib={args.calib} -> {calib_root} + {SMPLX_ROOT}')
+
     seq2date = build_seq2date()
     date = seq2date.get(args.seq)
     if date is None:
         raise SystemExit(f'No date for seq {args.seq} in dataset_information.json')
-    calib_json = os.path.join(CALIB_ROOT, date, 'calibration.json')
+    calib_json = os.path.join(calib_root, date, 'calibration.json')
     cams = read_cameras_refined_json(calib_json)
 
     print(f'[viz] seq={args.seq} date={date} frame={args.frame} views={views} device={device}')
@@ -182,6 +224,7 @@ def main():
         cam = cams[v]
         img_h = img.shape[0]
         Ks, s = scale_K(cam['K'], img_h, cam['H'])
+        img = maybe_undistort(img, Ks, cam['dist'], use_distortion)
         cam_render = {'K': Ks, 'R': cam['R'], 'T': cam['T'].reshape(3, 1)}
 
         render_data = {}

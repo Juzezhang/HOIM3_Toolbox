@@ -54,9 +54,20 @@ from mvbodyfit.core.mytools.camera_utils import read_cameras_refined_json  # noq
 OBJPOSE_ROOT = '/simurgh2/datasets/HOI-M3/objpose_v3'
 MOCAP_GROUND_ROOT = '/simurgh/group/juze/datasets/HOI-M3/mocap_ground'
 SCANNED_ROOT = '/simurgh/group/juze/datasets/HOI-M3/scanned_object'
-CALIB_ROOT = '/simurgh2/datasets/HOI-M3/calib_ground_refined'
 IMG_ROOT = '/simurgh2/datasets/HOI-M3/images'
 DATASET_INFO = '/simurgh2/datasets/HOI-M3/dataset_information.json'
+
+# Two calibrations ship with the dataset (see README). They live in DIFFERENT world
+# frames and are HARD-PAIRED with their own fits -- never mix them:
+#   ground_refined  : refined PINHOLE calib (distCoeff ~= 0). Pairs with the objpose_v3/
+#                     & mocap_ground object poses used here.
+#   with_distortion : the MORE ACCURATE calib (5-param OpenCV distortion, genuinely
+#                     non-zero). Object poses were triangulated from UNDISTORTED 2D, so
+#                     the image MUST be undistorted before overlay.
+CALIB_ROOTS = {
+    'ground_refined': '/simurgh2/datasets/HOI-M3/calib_ground_refined',
+    'with_distortion': '/simurgh2/datasets/HOI-M3/calib_with_distortion',
+}
 
 
 def build_seq2date():
@@ -77,6 +88,24 @@ def scale_K(K, img_h, calib_H):
     Ks[0, 2] *= s
     Ks[1, 2] *= s
     return Ks, s
+
+
+def maybe_undistort(img, Ks, dist, use_distortion):
+    """Undistort `img` in place of the raw frame when using the distortion calib.
+
+    The with_distortion fits were triangulated from UNDISTORTED 2D, so we rectify the
+    image with cv2.undistort using the resolution-scaled K and the RAW distCoeff, then
+    project the mesh with the SAME Ks. cv2.undistort defaults newCameraMatrix=Ks, so the
+    rectified image matches Ks exactly. distCoeff is dimensionless (normalized coords),
+    so it does NOT scale with resolution -- pass it raw alongside the scaled K.
+    For ground_refined (distCoeff ~= 0) this is a no-op and we skip it entirely.
+    """
+    if not use_distortion:
+        return img
+    dist = np.asarray(dist, dtype=np.float32).reshape(-1)
+    if dist.size == 0 or not np.any(dist != 0):
+        return img
+    return cv2.undistort(img, Ks, dist)
 
 
 def resolve_mesh_path(obj_name, meta):
@@ -211,8 +240,9 @@ def build_render_data(objects, frame, convention):
     return render_data, present
 
 
-def render_view(renderer, render_data, img, cam):
+def render_view(renderer, render_data, img, cam, use_distortion=False):
     Ks, _ = scale_K(cam['K'], img.shape[0], cam['H'])
+    img = maybe_undistort(img, Ks, cam['dist'], use_distortion)
     cam_render = {'K': Ks, 'R': cam['R'], 'T': cam['T'].reshape(3, 1)}
     if not render_data:
         return img
@@ -252,6 +282,10 @@ def main():
                     help="rotation convention: 'R' = R@V (v3 default), 'Rt' = R.T@V")
     ap.add_argument('--both', action='store_true',
                     help='render both conventions side-by-side (still only)')
+    ap.add_argument('--calib', choices=['ground_refined', 'with_distortion'],
+                    default='ground_refined',
+                    help="calibration set: 'ground_refined' (pinhole, default) or "
+                         "'with_distortion' (more accurate; undistorts the image)")
     ap.add_argument('--gpu', type=int, default=0)
     # animation options
     ap.add_argument('--anim', action='store_true', help='animate over frame range')
@@ -265,11 +299,20 @@ def main():
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
     view = str(args.view)
 
+    use_distortion = args.calib == 'with_distortion'
+    calib_root = CALIB_ROOTS[args.calib]
+    if use_distortion:
+        src_root = MOCAP_GROUND_ROOT if args.source == 'mocap_ground' else OBJPOSE_ROOT
+        if 'with_distortion' not in src_root:
+            print(f'[viz] WARNING: --calib with_distortion but object poses come from '
+                  f'{src_root} (the non-distortion fit set) -- these live in a different '
+                  f'world frame (pair with the distortion-triangulated object poses).')
+
     seq2date = build_seq2date()
     date = seq2date.get(args.seq)
     if date is None:
         raise SystemExit(f'No date for seq {args.seq} in dataset_information.json')
-    cams = read_cameras_refined_json(os.path.join(CALIB_ROOT, date, 'calibration.json'))
+    cams = read_cameras_refined_json(os.path.join(calib_root, date, 'calibration.json'))
     if view not in cams:
         raise SystemExit(f'view {view} has no calibration entry (have {sorted(cams)[:12]}...)')
     cam = cams[view]
@@ -292,7 +335,7 @@ def main():
             if img is None:
                 continue
             rd, _ = build_render_data(objects, f, args.convention)
-            img = render_view(renderer, rd, img, cam)
+            img = render_view(renderer, rd, img, cam, use_distortion)
             if args.width and img.shape[1] != args.width:
                 h = int(round(img.shape[0] * args.width / img.shape[1]))
                 img = cv2.resize(img, (args.width, h), interpolation=cv2.INTER_AREA)
@@ -322,7 +365,7 @@ def main():
     def render_conv(conv):
         rd, present = build_render_data(objects, args.frame, conv)
         print(f'[viz]   conv={conv}: objects present at frame {args.frame}: {present}')
-        out = render_view(renderer, rd, base.copy(), cam)
+        out = render_view(renderer, rd, base.copy(), cam, use_distortion)
         return legend(out, objects, conv)
 
     if args.both:

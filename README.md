@@ -35,7 +35,7 @@ MHR→SMPL-X conversion, and rendering of the human/object annotations.
 | Camera views | **42** synchronized cameras |
 | Scene content | multiple humans + multiple objects, in contextual room layouts |
 | Annotations | multi-view RGB, instance masks, mono MHR body, VitPose 2D keypoints, multi-view SMPL-X/MHR fits, per-frame object 6-DoF poses, scanned object meshes |
-| Calibration | refined ground calibration (`calib_ground_refined`), all 42 views |
+| Calibration | two variants, all 42 views: refined pinhole (`calib_ground_refined`) and distortion-aware (`calib_with_distortion`, more accurate) |
 
 ## 🚩 Updates
 - **Jul 1, 2024** — Due to the large mask size, the annotated masks are initially released for view 3 only; the full masks + this toolbox's regeneration pipeline recover all 42 views.
@@ -76,7 +76,8 @@ HOI-M3/
 ├─ videos/                {seq}/videos/{view}.mp4        # 42 views, 4K HEVC
 ├─ images/                {seq}/{view}/{frame:06d}.jpg   # extracted (see below)
 ├─ mask/                  released masks (all 42 views)
-├─ calib_ground_refined/  {date}/calibration.json        # 42 views; seq→date via dataset_information.json
+├─ calib_ground_refined/  {date}/calibration.json        # refined PINHOLE calib (42 views)
+├─ calib_with_distortion/ {date}/calibration.json        # distortion-aware calib (42 views; more accurate)
 ├─ mocap/                 per-frame object 6-DoF poses (ground frame)
 ├─ scanned_object/        object meshes
 ├─ dataset_information.json     # seq → capture date, per-scene metadata
@@ -84,9 +85,23 @@ HOI-M3/
 ```
 
 Sequences map to a capture **date** via `dataset_information.json`; the matching camera calibration
-lives in `calib_ground_refined/{date}/calibration.json` (each view: `K` 3×3, `RT` 3×4 world→camera,
-`distCoeff`, `imgSize` at the 4K capture resolution — rescale `K` by `image_height / imgSize_height`
-if you work at a lower resolution than the capture).
+lives in `{calib}/{date}/calibration.json`. Each view is `{ K: 3×3, RT: 3×4 world→camera, distCoeff:
+5-param OpenCV [k1,k2,p1,p2,k3], imgSize }` at the 4K capture resolution — rescale `K` by
+`image_height / imgSize_height` if you work at a lower resolution (the images shipped/extracted are
+720p). **`distCoeff` is dimensionless (normalized coords) — do NOT rescale it; use it raw with the
+rescaled `K`.**
+
+### Two calibrations (pick one — never mix)
+| | `calib_ground_refined` | `calib_with_distortion` |
+|---|---|---|
+| Model | pinhole (`distCoeff ≈ 0`) | 5-param OpenCV distortion (**genuinely non-zero**) |
+| Accuracy | good | **more accurate** (recommended) |
+| Image handling | use frames as-is | **must undistort** the image (fits were triangulated from undistorted 2D) |
+| Paired fits | `smplx/`, `mhr/`, `objpose_v3/`, `mocap/` | `smplx_with_distortion/`, `mhr_withdist/` |
+
+> **Hard pairing.** The two calibrations live in **different world frames** (4–8 cm apart). Always use a
+> calibration with *its own* fit set — e.g. `calib_ground_refined` + `smplx/`, or `calib_with_distortion`
+> + `smplx_with_distortion/`. Never cross them.
 
 ## 🛠️ Pipeline
 
@@ -233,9 +248,15 @@ verts = out.vertices[0].detach().numpy()   # world/ground frame; project with ca
 ```
 
 ### Visualizing (humans + objects)
-Overlay the meshes on the real camera images via pyrender (world→camera from the refined
-`calib_ground_refined` — the same cameras the MHR fitting used — handled internally; K rescaled to the
-image resolution). Runs in an env with `smplx` + `pyrender`.
+Overlay the meshes on the real camera images via pyrender (world→camera handled internally; `K`
+rescaled to the image resolution). Runs in an env with `smplx` + `pyrender`.
+
+All four visualizers take **`--calib {ground_refined, with_distortion}`** (default `ground_refined`):
+- `ground_refined` (default) — refined pinhole calib; images used as-is.
+- `with_distortion` — the more accurate calib; the frame is **undistorted** with `cv2.undistort`
+  (rescaled `K`, raw `distCoeff`) before the mesh is overlaid, and the mesh is projected with the same
+  `K`. Pair it with the `*_with_distortion` fit sets (a warning prints if the loaded fits are the
+  non-distortion set — they live in a different world frame).
 
 ```bash
 # humans + objects together, animated single-view overlay -> mp4/gif
@@ -251,9 +272,13 @@ PYOPENGL_PLATFORM=egl python scripts/visualize_objpose.py \
 # static multi-view SMPL-X grid (sanity-check alignment across views)
 PYOPENGL_PLATFORM=egl python scripts/visualize_smplx_grid.py \
   --seq bedroom_data01 --frame 0 --views 0 7 14 21 28 35 --out grid.png
+# same grid using the distortion-aware calibration (image gets undistorted first)
+PYOPENGL_PLATFORM=egl python scripts/visualize_smplx_grid.py \
+  --seq bedroom_data01 --frame 0 --views 0 7 14 21 28 35 --calib with_distortion --out grid_ud.png
 ```
 Object poses come from `object/{seq}_object.npz` (ground frame; `object_source=mocap_ground`) or the
-refined `objpose_v3/` fit; the human meshes from `smplx/`.
+refined `objpose_v3/` fit; the human meshes from `smplx/`. With `--calib with_distortion`, use the
+matching `smplx_with_distortion/` + `mhr_withdist/` fits.
 
 The SMPL-X parameters are in the 3D ground/world frame (resolution-independent). See the project
 page and paper for the multi-view fitting method.

@@ -207,8 +207,13 @@ def build_reference_for_seq(seq, mask_npz_root, out_root):
             {pk: data[pk] for pk in person_keys}, person_keys, perm
         )
 
-        # Build indexed mask (object order = keys order, IDs 1..N)
-        idx = np.zeros((src_h, src_w), dtype=np.uint8)
+        # Build indexed mask (object order = keys order, IDs 1..N).
+        # Some seqs have per-frame resolution differences (e.g. frame 0 at 720p
+        # but a later per-view ref frame at 1080p) -> size idx to THIS frame's
+        # mask, not frame 0's, else the boolean index below raises IndexError.
+        cur_sample = data[keys[0]]
+        cur_h, cur_w = cur_sample.shape[1], cur_sample.shape[2]
+        idx = np.zeros((cur_h, cur_w), dtype=np.uint8)
         present_ids = []
         for cid, key in enumerate(keys, start=1):
             if key in person_keys:

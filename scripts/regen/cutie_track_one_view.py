@@ -54,12 +54,12 @@ TARGET_H = 1080
 # Per-seq overrides for ref_root / output_root.
 # Used to piggyback bedroom_data01 (Cutie re-tracking from non-zero start frames)
 # on the same dispatcher / worker loop without disturbing the 11 office seqs.
-_REF_ROOT_OVERRIDES = {
-    "bedroom_data01": "/simurgh2/datasets/HOI-M3/cutie_refs_bedroom_data01",
-}
-_OUTPUT_ROOT_OVERRIDES = {
-    "bedroom_data01": "/scr/juze/datasets/HOI-M3/cutie_tracking_bedroom_data01",
-}
+# 2026-07-13: bedroom_data01 entries REMOVED — that piggyback effort is done and
+# the stale override (old ref dir missing views; output on /scr = simurgh5-only)
+# silently failed all 42 views of the swap-fix re-track. Fresh refs live in the
+# standard cutie_refs/.
+_REF_ROOT_OVERRIDES = {}
+_OUTPUT_ROOT_OVERRIDES = {}
 
 
 def _save_frame(out_dir, frame_idx, indexed_mask, names):

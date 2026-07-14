@@ -81,14 +81,27 @@ def build_seq2date():
     return seq2date
 
 
-def build_model(device):
+def build_model(device, num_betas=10):
     model = smplx.create(
         SMPLX_MODEL_DIR, model_type='smplx', gender='neutral',
         use_pca=False, flat_hand_mean=True,
-        num_betas=10, num_expression_coeffs=10,
+        num_betas=num_betas, num_expression_coeffs=10,
     ).to(device)
     model.eval()
     return model
+
+
+_MODEL_CACHE = {}
+
+
+def model_for_betas(device, num_betas):
+    """smplx_with_distortion is MIXED provenance: MHR-sourced files carry 10
+    betas, DenseFit-sourced carry 16 (meta `source` field). Cache one model per
+    beta dim so both render correctly (never truncate 16->10 silently)."""
+    key = (str(device), int(num_betas))
+    if key not in _MODEL_CACHE:
+        _MODEL_CACHE[key] = build_model(device, num_betas=int(num_betas))
+    return _MODEL_CACHE[key]
 
 
 def discover_persons(seq):
@@ -153,6 +166,8 @@ def forward_person_frames(model, npz_path, frames, device, batch=256):
         arr = np.asarray(d[key], dtype=np.float32)
         if arr.ndim == 1:  # e.g. constant betas stored as (dim,)
             arr = np.broadcast_to(arr.reshape(1, -1), (len(frame_ids), arr.shape[-1]))
+        if key == 'betas':
+            dim = arr.shape[-1]   # native dim (10 = MHR-sourced, 16 = DenseFit)
         params[key] = arr[rows][:, :dim]
 
     verts_out = {}
@@ -161,7 +176,8 @@ def forward_person_frames(model, npz_path, frames, device, batch=256):
             e = min(s + batch, len(rows))
             kwargs = {k: torch.tensor(v[s:e], dtype=torch.float32, device=device)
                       for k, v in params.items()}
-            out = model(**kwargs)
+            nb = params['betas'].shape[-1] if 'betas' in params else 10
+            out = model_for_betas(device, nb)(**kwargs)
             v = out.vertices.cpu().numpy()
             for j in range(e - s):
                 verts_out[present[s + j]] = v[j]
